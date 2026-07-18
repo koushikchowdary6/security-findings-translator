@@ -1,0 +1,16 @@
+[
+  {
+    "id": "iam-001",
+    "severity": "HIGH",
+    "rule": "privilege_escalation_action",
+    "detail": "Statement allows action(s) ['iam:createpolicyversion', 'iam:setdefaultpolicyversion'] commonly used to escalate privileges",
+    "resource": "arn:aws:iam::*:policy/*"
+  },
+  {
+    "id": "ssh-002",
+    "severity": "CRITICAL",
+    "rule": "successful_login_after_bruteforce",
+    "detail": "203.0.113.5 logged in as 'oracle' after 6 failed attempts -- possible successful brute force",
+    "resource": "203.0.113.5"
+  }
+]
