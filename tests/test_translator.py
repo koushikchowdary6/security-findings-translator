@@ -97,3 +97,37 @@ def test_offline_file_translation_end_to_end(tmp_path):
     results = translate_findings_file(str(p), offline=True)
     assert len(results) == 2
     assert all("next step" in r.plain_english.lower() for r in results)
+
+
+def test_offline_file_translation_rejects_scalar_json(tmp_path):
+    import json
+
+    p = tmp_path / "bad.json"
+    p.write_text(json.dumps("not-a-finding"), encoding="utf-8")
+
+    try:
+        translate_findings_file(str(p), offline=True)
+    except ValueError as exc:
+        assert "object or an array of objects" in str(exc)
+    else:
+        raise AssertionError("scalar JSON should be rejected")
+
+
+def test_offline_file_translation_rejects_mixed_array(tmp_path):
+    import json
+
+    p = tmp_path / "mixed.json"
+    p.write_text(
+        json.dumps([
+            {"id": "ok", "severity": "LOW", "rule": "ssh_brute_force"},
+            "not-a-finding",
+        ]),
+        encoding="utf-8",
+    )
+
+    try:
+        translate_findings_file(str(p), offline=True)
+    except ValueError as exc:
+        assert "object or an array of objects" in str(exc)
+    else:
+        raise AssertionError("mixed finding arrays should be rejected")
