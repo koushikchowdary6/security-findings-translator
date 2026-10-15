@@ -154,9 +154,23 @@ def heuristic_translate(finding: dict) -> TranslationResult:
 # --- File-level helpers --------------------------------------------------------
 
 def _load_findings(path: str) -> list[dict]:
-    with open(path) as f:
+    """Load a finding object or list of finding objects from JSON.
+
+    Reject malformed top-level shapes early so callers get a clear error
+    instead of failing later while translating a string/number as if it were
+    a security finding.
+    """
+    with open(path, encoding="utf-8") as f:
         findings = json.load(f)
-    return [findings] if isinstance(findings, dict) else findings
+
+    if isinstance(findings, dict):
+        return [findings]
+    if isinstance(findings, list) and all(isinstance(item, dict) for item in findings):
+        return findings
+
+    raise ValueError(
+        "findings JSON must contain an object or an array of objects"
+    )
 
 
 def translate_findings_file(path: str, offline: bool = False) -> list[TranslationResult]:
