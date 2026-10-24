@@ -62,13 +62,23 @@ finding JSON that `iam-policy-auditor` and `ssh-log-threat-detector` produce.
 It's the "explain a technical thing to a non-technical room" layer for a
 detection stack.
 
+## LLM trust boundary
+
+Before calling Claude, the translator recursively redacts recognized credential
+fields (including nested API keys, passwords, tokens, and authorization values)
+from the JSON payload. The system prompt explicitly treats finding content as
+untrusted evidence, not instructions. Offline tests verify the request payload
+and the redaction without contacting an API. This is **defense in depth**, not
+proof that a model resists every prompt injection. Secrets embedded in free-text
+fields are **not** automatically detected; review telemetry before uploading.
+
 ## Tests
 
 ```bash
 PYTHONPATH=src python -m pytest tests/ -v
 ```
 
-7 tests: the Claude path is mocked (so tests run offline and cost nothing) and
+The tests: the Claude path is mocked (so tests run offline and cost nothing) and
 checks that findings are passed to the model correctly, the system prompt is
 set, and missing fields are handled; the offline template backend is tested
 directly for plain language, a concrete next step, and severity-aware urgency.
