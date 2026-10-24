@@ -93,7 +93,20 @@ _INLINE_SECRET_PATTERNS = (
 )
 
 
+# Signed webhook URLs (including Azure Logic Apps callbacks) can contain
+# low-entropy credentials in query parameters that entropy checks miss.
+# Preserve the parameter name and URL context while removing only the value.
+_URL_QUERY_SECRET_PATTERN = re.compile(
+    r"""(?i)(?P<prefix>[?&](?:sig|signature|api[_-]?key|access[_-]?token|"""
+    r"""refresh[_-]?token|client[_-]?secret|token)=)"""
+    r"""(?P<secret>[^&#\s"'<>),;]+)"""
+)
+
+
 def _redact_inline_secrets(text: str) -> str:
+    text = _URL_QUERY_SECRET_PATTERN.sub(
+        lambda match: match.group("prefix") + "[REDACTED]", text,
+    )
     for pattern in _INLINE_SECRET_PATTERNS:
         text = pattern.sub("[REDACTED]", text)
     return text
