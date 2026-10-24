@@ -56,8 +56,8 @@ def _finding_id(finding: dict) -> str:
 
 
 # Avoid sending secrets in structured finding metadata to a third-party LLM.
-# This protects recognized credential *fields*, not arbitrary secrets hidden
-# inside free-form descriptions. Callers must review those separately.
+# This protects credential fields and recognizable inline secret formats,
+# but cannot identify every arbitrary secret in free-form descriptions.
 _SENSITIVE_FIELDS = {
     "password", "passwd", "secret", "api_key", "apikey", "access_token",
     "refresh_token", "authorization", "credential", "credentials",
@@ -65,6 +65,38 @@ _SENSITIVE_FIELDS = {
     "aws_secret_access_key", "aws_access_key_id",
 }
 _SENSITIVE_SUFFIXES = ("_password", "_secret", "_token", "_api_key", "_credential")
+
+# Defense in depth for recognizable secrets embedded in free-text fields.
+# This intentionally targets well-defined formats; it is not a general DLP
+# engine and cannot guarantee that arbitrary credentials will be found.
+_INLINE_SECRET_PATTERNS = (
+    re.compile(
+        r"-----BEGIN (?P<label>(?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY)-----"
+        r"(?:(?!-----BEGIN ).)*?-----END (?P=label)-----"
+        r"|-----BEGIN (?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----"
+        r"(?:(?!-----BEGIN ).)*?(?=-----BEGIN |\\Z)",
+        re.DOTALL,
+    ),
+    re.compile(
+        r"\\b(?:AKIA|ASIA)[0-9A-Z]{16}\\b"
+        r"|\\bgh[pousr]_[A-Za-z0-9]{36,}\\b"
+        r"|\\bgithub_pat_[A-Za-z0-9_]{20,}\\b"
+        r"|\\bsk-ant-[A-Za-z0-9_-]{20,}\\b"
+        r"|\\bsk-(?!ant-)(?:proj-|svcacct-)?[A-Za-z0-9_-]{20,}\\b"
+        r"|\\beyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\b"
+    ),
+    re.compile(
+        r"(?i)\\b(password|passwd|api[_-]?key|access[_-]?token|"
+        r"refresh[_-]?token|client[_-]?secret|authorization)\\s*[:=]\\s*"
+        r"(?:\\\"[^\\\"]+\\\"|'[^']+'|[^\\s,;]+)"
+    ),
+)
+
+
+def _redact_inline_secrets(text: str) -> str:
+    for pattern in _INLINE_SECRET_PATTERNS:
+        text = pattern.sub("[REDACTED]", text)
+    return text
 
 
 def _safe_finding_for_llm(value):
@@ -80,6 +112,8 @@ def _safe_finding_for_llm(value):
         return sanitized
     if isinstance(value, list):
         return [_safe_finding_for_llm(item) for item in value]
+    if isinstance(value, str):
+        return _redact_inline_secrets(value)
     return value
 
 
