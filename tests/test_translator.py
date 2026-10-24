@@ -224,7 +224,7 @@ def test_inline_redaction_does_not_change_non_secret_telemetry():
 
 
 def test_free_text_authorization_header_redacts_entire_bearer_and_basic_values():
-    bearer = "eyJhbGciOiJIUzI1NiJ9.payload.signature"
+    bearer = "opaqueBearerTokenValue123456"
     basic = "YWxpY2U6c2VjcmV0"
     finding = {
         "description": (
