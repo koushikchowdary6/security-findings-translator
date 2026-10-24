@@ -65,12 +65,17 @@ detection stack.
 ## LLM trust boundary
 
 Before calling Claude, the translator recursively redacts recognized credential
-fields (including nested API keys, passwords, tokens, and authorization values)
-from the JSON payload. The system prompt explicitly treats finding content as
-untrusted evidence, not instructions. Offline tests verify the request payload
-and the redaction without contacting an API. This is **defense in depth**, not
-proof that a model resists every prompt injection. Secrets embedded in free-text
-fields are **not** automatically detected; review telemetry before uploading.
+fields (including nested passwords, tokens, and authorization values), and
+recognizable inline secrets in free-text fields: common AWS/OpenAI/Anthropic/
+GitHub token formats, JWTs, PEM private-key blocks, and credential assignments.
+This sanitizes the **API request**, without modifying local source evidence.
+Offline tests use a mocked API to verify that synthetic secrets never appear in
+the outbound prompt. The system prompt treats findings as untrusted evidence,
+not instructions.
+
+This is **defense in depth**, not a complete DLP system or proof of
+prompt-injection resistance. Arbitrary, short, unusual, or encoded secrets may
+still pass through. Review telemetry before sending it to an external model.
 
 ## Tests
 
