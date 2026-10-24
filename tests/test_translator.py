@@ -221,3 +221,23 @@ def test_inline_redaction_does_not_change_non_secret_telemetry():
     assert "192.0.2.7" in prompt
     assert "Event count: 12" in prompt
     assert "[REDACTED]" not in prompt
+
+
+def test_free_text_authorization_header_redacts_entire_bearer_and_basic_values():
+    bearer = "eyJhbGciOiJIUzI1NiJ9.payload.signature"
+    basic = "YWxpY2U6c2VjcmV0"
+    finding = {
+        "description": (
+            f"Authorization: Bearer {bearer}; "
+            f"authorization=Basic {basic}; login failed"
+        ),
+    }
+    client = make_fake_client("Ask IT to review the failed login.")
+    translate_finding(finding, client)
+    prompt = client.messages.create.call_args.kwargs["messages"][0]["content"]
+    assert bearer not in prompt
+    assert basic not in prompt
+    assert "Bearer" not in prompt
+    assert "Basic" not in prompt
+    assert prompt.count("[REDACTED]") == 2
+    assert "login failed" in prompt
