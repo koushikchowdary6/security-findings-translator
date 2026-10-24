@@ -67,7 +67,10 @@ detection stack.
 Before calling Claude, the translator recursively redacts recognized credential
 fields (including nested passwords, tokens, and authorization values), and
 recognizable inline secrets in free-text fields: common AWS/OpenAI/Anthropic/
-GitHub token formats, JWTs, PEM private-key blocks, and credential assignments.
+GitHub token formats, JWTs, PEM private-key blocks, credential assignments,
+and signed webhook/API URL query parameters (including `sig` and `token`).
+URL sanitization preserves non-secret parameters so responders can still
+recognize the affected endpoint.
 This sanitizes the **API request**, without modifying local source evidence.
 Offline tests use a mocked API to verify that synthetic secrets never appear in
 the outbound prompt. The system prompt treats findings as untrusted evidence,
