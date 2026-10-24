@@ -176,3 +176,48 @@ def test_offline_file_translation_rejects_mixed_array(tmp_path):
         assert "object or an array of objects" in str(exc)
     else:
         raise AssertionError("mixed finding arrays should be rejected")
+
+
+def test_recognizable_secrets_inside_free_text_are_removed_before_api_call():
+    aws_key = "AKIA" + "A" * 16
+    openai_key = "sk-proj-" + "B" * 30
+    github_token = "ghp_" + "C" * 36
+    jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.abc123xyz"
+    pem = "-----BEGIN PRIVATE KEY-----\\nSENSITIVE-MATERIAL\\n-----END PRIVATE KEY-----"
+    finding = {
+        "id": "case-9",
+        "description": f"Investigate {aws_key} and {openai_key}",
+        "details": [
+            f"Found {github_token} and {jwt}",
+            f"Evidence: {pem}",
+            "password=plain-text-credential",
+        ],
+        "context": {"status": "requires investigation"},
+    }
+    client = make_fake_client("Ask IT to review the incident.")
+    translate_finding(finding, client)
+    prompt = client.messages.create.call_args.kwargs["messages"][0]["content"]
+
+    for secret in (aws_key, openai_key, github_token, jwt,
+                   "SENSITIVE-MATERIAL", "plain-text-credential"):
+        assert secret not in prompt
+    assert prompt.count("[REDACTED]") >= 6
+    assert "requires investigation" in prompt
+    assert "Investigate" in prompt
+    # The source evidence remains available for trusted local investigation.
+    assert aws_key in finding["description"]
+    assert "SENSITIVE-MATERIAL" in finding["details"][1]
+
+
+def test_inline_redaction_does_not_change_non_secret_telemetry():
+    finding = {
+        "id": "case-10",
+        "description": "IP address 192.0.2.7 triggered a failed login.",
+        "details": ["Event count: 12", "No credential observed"],
+    }
+    client = make_fake_client("Ask IT to review the login.")
+    translate_finding(finding, client)
+    prompt = client.messages.create.call_args.kwargs["messages"][0]["content"]
+    assert "192.0.2.7" in prompt
+    assert "Event count: 12" in prompt
+    assert "[REDACTED]" not in prompt
