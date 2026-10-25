@@ -150,11 +150,19 @@ def translate_finding(finding: dict, client) -> TranslationResult:
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_prompt}],
     )
-    text = "".join(block.text for block in response.content if block.type == "text")
+    # A token-limited or tool-handoff response may look like a useful summary
+    # but can omit the only actionable remediation. Never present it as final.
+    if getattr(response, "stop_reason", None) != "end_turn":
+        raise RuntimeError("translation did not complete normally")
+    text = "".join(
+        block.text for block in response.content if block.type == "text"
+    ).strip()
+    if not text:
+        raise RuntimeError("translation response contained no text")
     return TranslationResult(
         finding_id=_finding_id(finding),
         severity=finding.get("severity", "UNKNOWN"),
-        plain_english=text.strip(),
+        plain_english=text,
     )
 
 
