@@ -74,7 +74,11 @@ recognize the affected endpoint.
 This sanitizes the **API request**, without modifying local source evidence.
 Offline tests use a mocked API to verify that synthetic secrets never appear in
 the outbound prompt. The system prompt treats findings as untrusted evidence,
-not instructions. The Claude path also rejects token-truncated, tool-handoff,
+not instructions. To keep the `<finding_json>` data boundary unambiguous,
+angle brackets inside JSON keys and values are serialized as JSON Unicode
+escapes before the request is sent; decoded evidence remains unchanged. This
+reduces delimiter-spoofing opportunities but does not guarantee resistance
+to prompt injection. The Claude path also rejects token-truncated, tool-handoff,
 and empty responses rather than presenting an incomplete remediation summary
 as a completed translation; callers must handle these errors explicitly.
 
