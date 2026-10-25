@@ -6,6 +6,8 @@ key or cost tokens. The heuristic (offline) backend is tested directly.
 """
 import os
 import sys
+
+import pytest
 from unittest.mock import MagicMock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -24,13 +26,14 @@ class FakeTextBlock:
 
 
 class FakeResponse:
-    def __init__(self, text):
+    def __init__(self, text, stop_reason="end_turn"):
         self.content = [FakeTextBlock(text)]
+        self.stop_reason = stop_reason
 
 
-def make_fake_client(reply_text: str):
+def make_fake_client(reply_text: str, stop_reason="end_turn"):
     client = MagicMock()
-    client.messages.create.return_value = FakeResponse(reply_text)
+    client.messages.create.return_value = FakeResponse(reply_text, stop_reason)
     return client
 
 
