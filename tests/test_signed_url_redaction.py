@@ -59,3 +59,36 @@ def test_benign_url_parameters_remain_intact():
     prompt = client.messages.create.call_args.kwargs["messages"][0]["content"]
     assert "page=2&sort=desc&mode=preview" in prompt
     assert "[REDACTED]" not in prompt
+
+
+def test_cloud_presigned_url_credentials_are_removed_before_claude():
+    aws_url = (
+        "https://s3.example.invalid/object?X-Amz-Algorithm=AWS4-HMAC-SHA256"
+        "&X-Amz-Date=20261025T230000Z&X-Amz-Expires=900"
+        "&X-Amz-Signature=deadbeef123&X-Amz-Security-Token=opaqueShortToken"
+    )
+    gcp_url = (
+        "https://storage.example.invalid/object?X-Goog-Algorithm=GOOG4-RSA-SHA256"
+        "&X-Goog-Expires=600&X-Goog-Signature=abc123"
+    )
+    finding = {"description": f"Observed {aws_url}", "events": [{"url": gcp_url}]}
+    client = _fake_client()
+    translate_finding(finding, client)
+    prompt = client.messages.create.call_args.kwargs["messages"][0]["content"]
+
+    for secret in ("deadbeef123", "opaqueShortToken", "abc123"):
+        assert secret not in prompt
+    for retained in (
+        "X-Amz-Algorithm=AWS4-HMAC-SHA256",
+        "X-Amz-Date=20261025T230000Z",
+        "X-Amz-Expires=900",
+        "X-Goog-Algorithm=GOOG4-RSA-SHA256",
+        "X-Goog-Expires=600",
+        "X-Amz-Signature=[REDACTED]",
+        "X-Amz-Security-Token=[REDACTED]",
+        "X-Goog-Signature=[REDACTED]",
+    ):
+        assert retained in prompt
+    # The original evidence is retained for trusted local triage.
+    assert "opaqueShortToken" in finding["description"]
+    assert "abc123" in finding["events"][0]["url"]
