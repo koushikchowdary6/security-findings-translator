@@ -11,6 +11,7 @@ from translator import translate_finding  # noqa: E402
 
 def _fake_client():
     client = MagicMock()
+    client.messages.create.return_value.stop_reason = "end_turn"
     client.messages.create.return_value.content = [
         type("TextBlock", (), {"type": "text", "text": "Ask IT to rotate the link."})()
     ]

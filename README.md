@@ -74,7 +74,9 @@ recognize the affected endpoint.
 This sanitizes the **API request**, without modifying local source evidence.
 Offline tests use a mocked API to verify that synthetic secrets never appear in
 the outbound prompt. The system prompt treats findings as untrusted evidence,
-not instructions.
+not instructions. The Claude path also rejects token-truncated, tool-handoff,
+and empty responses rather than presenting an incomplete remediation summary
+as a completed translation; callers must handle these errors explicitly.
 
 This is **defense in depth**, not a complete DLP system or proof of
 prompt-injection resistance. Arbitrary, short, unusual, or encoded secrets may
