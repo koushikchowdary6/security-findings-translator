@@ -98,7 +98,7 @@ _INLINE_SECRET_PATTERNS = (
 # Preserve the parameter name and URL context while removing only the value.
 _URL_QUERY_SECRET_PATTERN = re.compile(
     r"""(?i)(?P<prefix>[?&](?:sig|signature|api[_-]?key|access[_-]?token|"""
-    r"""refresh[_-]?token|client[_-]?secret|token)=)"""
+    r"""refresh[_-]?token|client[_-]?secret|token|x-amz-(?:signature|security-token)|x-goog-signature)=)"""
     r"""(?P<secret>[^&#\s"'<>),;]+)"""
 )
 
