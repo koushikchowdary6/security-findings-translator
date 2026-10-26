@@ -71,7 +71,7 @@ GitHub token formats, JWTs, PEM private-key blocks, credential assignments,
 and signed webhook/API URL query parameters (including `sig` and `token`).
 URL sanitization preserves non-secret parameters so responders can still
 recognize the affected endpoint.
-This sanitizes the **API request**, without modifying local source evidence.
+The same recognizable-secret filters now also protect **returned finding IDs, severity labels, and generated explanations**, because these fields are printed to users and a model may echo secrets despite prompt guidance. This sanitizes the API request and displayed results without modifying local source evidence.
 Offline tests use a mocked API to verify that synthetic secrets never appear in
 the outbound prompt. The system prompt treats findings as untrusted evidence,
 not instructions. To keep the `<finding_json>` data boundary unambiguous,
