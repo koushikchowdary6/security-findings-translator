@@ -35,7 +35,7 @@ def test_claude_result_redacts_metadata_and_provider_text():
         assert secret not in (result.finding_id + result.severity + result.plain_english)
     assert "sig=[REDACTED]" in result.finding_id
     assert "mode=check" in result.finding_id
-    assert "api_key=[REDACTED]" in result.severity
+    assert result.severity == "HIGH [REDACTED]"
     assert "token=[REDACTED]" in result.plain_english
     assert "page=2" in result.plain_english
     assert "mode=review" in result.plain_english
@@ -54,7 +54,7 @@ def test_offline_translation_redacts_identifiers_and_severity():
     assert "shortOfflineSecret" not in result.finding_id
     assert "shortPassword" not in result.severity
     assert result.finding_id == "case?signature=[REDACTED]"
-    assert "password=[REDACTED]" in result.severity
+    assert result.severity == "LOW [REDACTED]"
     assert "Next step:" in result.plain_english
 
 
