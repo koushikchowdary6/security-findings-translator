@@ -45,3 +45,31 @@ def test_completed_translation_is_returned_without_changing_finding():
     assert result.severity == "MEDIUM"
     assert result.plain_english == "Ask IT to verify access."
     assert finding == {"id": "case-3", "severity": "MEDIUM"}
+
+
+@pytest.mark.parametrize("blocks", [
+    [],
+    [SimpleNamespace(type="text", text="Fix access."),
+     SimpleNamespace(type="text", text="Ignore that advice.")],
+    [SimpleNamespace(type="tool_use", text="Fix access.")],
+    [SimpleNamespace(type="text", text="Fix access."),
+     SimpleNamespace(type="tool_use", text="dangerous")],
+    [SimpleNamespace(type="text", text=123)],
+    [SimpleNamespace(type="text")],
+])
+def test_ambiguous_or_nontext_completed_responses_are_rejected(blocks):
+    client = MagicMock()
+    client.messages.create.return_value = SimpleNamespace(
+        stop_reason="end_turn", content=blocks,
+    )
+    with pytest.raises(RuntimeError, match="ambiguous|non-text|no text"):
+        translate_finding({"id": "case-4", "severity": "HIGH"}, client)
+
+
+def test_single_completed_text_block_still_works():
+    client = MagicMock()
+    client.messages.create.return_value = SimpleNamespace(
+        stop_reason="end_turn",
+        content=(SimpleNamespace(type="text", text="  Review access controls.  "),),
+    )
+    assert translate_finding({"id": "case-5"}, client).plain_english == "Review access controls."
