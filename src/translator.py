@@ -52,7 +52,10 @@ class TranslationResult:
 
 
 def _finding_id(finding: dict) -> str:
-    return finding.get("id", finding.get("rule", "unknown"))
+    # Finding identifiers can themselves contain signed URLs or credentials.
+    # They are printed outside the sanitized LLM prompt, so redact at this
+    # output boundary as well without mutating the original finding.
+    return _redact_inline_secrets(str(finding.get("id", finding.get("rule", "unknown"))))
 
 
 # Avoid sending secrets in structured finding metadata to a third-party LLM.
@@ -175,8 +178,10 @@ def translate_finding(finding: dict, client) -> TranslationResult:
     text = raw_text.strip()
     return TranslationResult(
         finding_id=_finding_id(finding),
-        severity=finding.get("severity", "UNKNOWN"),
-        plain_english=text,
+        severity=_redact_inline_secrets(str(finding.get("severity", "UNKNOWN"))),
+        # A provider response is untrusted output; do not echo recognizable
+        # credentials even if a model repeats them despite prompt guidance.
+        plain_english=_redact_inline_secrets(text),
     )
 
 
@@ -246,7 +251,7 @@ def heuristic_translate(finding: dict) -> TranslationResult:
         "Next step: forward this finding to your IT support or security "
         "contact and ask them to explain the specific risk and fix.",
     )
-    severity = finding.get("severity", "UNKNOWN").upper()
+    severity = _redact_inline_secrets(str(finding.get("severity", "UNKNOWN"))).upper()
     prefix = _SEVERITY_PREFIX.get(severity, "")
     return TranslationResult(
         finding_id=_finding_id(finding),
