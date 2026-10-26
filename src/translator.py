@@ -160,11 +160,19 @@ def translate_finding(finding: dict, client) -> TranslationResult:
     # but can omit the only actionable remediation. Never present it as final.
     if getattr(response, "stop_reason", None) != "end_turn":
         raise RuntimeError("translation did not complete normally")
-    text = "".join(
-        block.text for block in response.content if block.type == "text"
-    ).strip()
-    if not text:
+    # A completed turn can still carry multiple or non-text blocks. Silently
+    # concatenating them may turn conflicting, partial, or tool-related output
+    # into seemingly authoritative remediation advice. Require one text block.
+    blocks = getattr(response, "content", None)
+    if not isinstance(blocks, (list, tuple)) or len(blocks) != 1:
+        raise RuntimeError("translation response has ambiguous content blocks")
+    block = blocks[0]
+    if getattr(block, "type", None) != "text":
+        raise RuntimeError("translation response has non-text content")
+    raw_text = getattr(block, "text", None)
+    if not isinstance(raw_text, str) or not raw_text.strip():
         raise RuntimeError("translation response contained no text")
+    text = raw_text.strip()
     return TranslationResult(
         finding_id=_finding_id(finding),
         severity=finding.get("severity", "UNKNOWN"),
