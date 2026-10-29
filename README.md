@@ -86,6 +86,19 @@ This is **defense in depth**, not a complete DLP system or proof of
 prompt-injection resistance. Arbitrary, short, unusual, or encoded secrets may
 still pass through. Review telemetry before sending it to an external model.
 
+### Batch input and cost controls
+
+The CLI reads at most **4 MiB** of UTF-8 JSON and accepts at most **100
+findings** per invocation. Before constructing a paid API client, it validates
+every finding's JSON evidence size (40,000 serialized characters maximum) and
+requires string-valued `id`, `rule`, and `severity` fields when present.
+An invalid late finding therefore rejects the **whole batch before any model
+request** instead of generating partial, billable results. These limits bound
+one invocation; they are not a spending cap across multiple invocations, and
+valid paid translations still incur API usage. See
+[batch-preflight tests](tests/test_batch_evidence_preflight.py) and
+[PR #11](https://github.com/koushikchowdary6/security-findings-translator/pull/11).
+
 ## Tests
 
 ```bash
