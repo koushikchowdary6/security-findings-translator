@@ -96,8 +96,8 @@ _INLINE_SECRET_PATTERNS = (
     ),
     re.compile(
         r"(?i)(?<![?&])\b(password|passwd|api[_-]?key|access[_-]?token|"
-        r"refresh[_-]?token|session[_-]?token|(?<!-)token|client[_-]?secret|authorization)\s*[:=]\s*"
-        r"(?:\"[^\"]+\"|'[^']+'|(?:Bearer|Basic)\s+[A-Za-z0-9._~+/-]+=*|[^\s,;]+)"
+        r"refresh[_-]?token|session[_-]?token|(?<!-)token|client[_-]?secret|authorization)\s*[:=]\s*(?!\[REDACTED\])"
+        r"(?:\"[^\"]+\"|'[^']+'|(?:Bearer|Basic)\s+[A-Za-z0-9._~+/-]+=*|[^\s,;&#]+)"
     ),
 )
 
@@ -106,7 +106,7 @@ _INLINE_SECRET_PATTERNS = (
 # low-entropy credentials in query parameters that entropy checks miss.
 # Preserve the parameter name and URL context while removing only the value.
 _URL_QUERY_SECRET_PATTERN = re.compile(
-    r"""(?i)(?P<prefix>[?&](?:sig|signature|api[_-]?key|access[_-]?token|"""
+    r"""(?i)(?P<prefix>(?:[?&]|&amp;|&#0*38;|&#x0*26;)(?:sig|signature|api[_-]?key|access[_-]?token|"""
     r"""refresh[_-]?token|client[_-]?secret|token|x-amz-(?:signature|security-token)|x-goog-signature)=)"""
     r"""(?P<secret>[^&#\s"'<>),;]+)"""
 )
