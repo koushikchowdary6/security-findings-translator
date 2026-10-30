@@ -54,3 +54,14 @@ def test_benign_prose_is_not_changed():
     assert result.finding_id == "case-42"
     assert result.severity == "MEDIUM"
     assert result.plain_english == "Ask IT to review the access policy."
+
+
+def test_bare_token_assignment_is_redacted_in_offline_metadata():
+    finding = {
+        "id": "incident token=opaqueSecret",
+        "severity": "LOW",
+        "rule": "ssh_brute_force",
+    }
+    result = heuristic_translate(finding)
+    assert result.finding_id == "incident [REDACTED]"
+    assert "opaqueSecret" in finding["id"]
