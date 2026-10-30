@@ -61,7 +61,7 @@ def _finding_id(finding: dict) -> str:
     # Finding identifiers can themselves contain signed URLs or credentials.
     # They are printed outside the sanitized LLM prompt, so redact at this
     # output boundary as well without mutating the original finding.
-    return _redact_inline_secrets(str(finding.get("id", finding.get("rule", "unknown"))))
+    return _safe_output_text(str(finding.get("id", finding.get("rule", "unknown"))))
 
 
 # Avoid sending secrets in structured finding metadata to a third-party LLM.
@@ -96,7 +96,7 @@ _INLINE_SECRET_PATTERNS = (
     ),
     re.compile(
         r"(?i)(?<![?&])\b(password|passwd|api[_-]?key|access[_-]?token|"
-        r"refresh[_-]?token|client[_-]?secret|authorization)\s*[:=]\s*"
+        r"refresh[_-]?token|session[_-]?token|(?<!-)token|client[_-]?secret|authorization)\s*[:=]\s*"
         r"(?:\"[^\"]+\"|'[^']+'|(?:Bearer|Basic)\s+[A-Za-z0-9._~+/-]+=*|[^\s,;]+)"
     ),
 )
@@ -119,6 +119,21 @@ def _redact_inline_secrets(text: str) -> str:
     for pattern in _INLINE_SECRET_PATTERNS:
         text = pattern.sub("[REDACTED]", text)
     return text
+
+
+# Finding identifiers, severities, and provider text are printed to terminals
+# and CI logs. Neutralize terminal escapes, line breaks, and bidirectional
+# formatting controls so untrusted evidence cannot forge log lines or visually
+# reverse a severity label. This is output encoding, not a DLP guarantee.
+_ANSI_CONTROL = re.compile(
+    r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)?)"
+)
+_TERMINAL_CONTROLS = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029\u202a-\u202e\u2066-\u2069]")
+
+
+def _safe_output_text(text: str) -> str:
+    without_escapes = _ANSI_CONTROL.sub("", _redact_inline_secrets(text))
+    return _TERMINAL_CONTROLS.sub(" ", without_escapes).strip()
 
 
 def _safe_finding_for_llm(value):
@@ -200,10 +215,10 @@ def translate_finding(finding: dict, client) -> TranslationResult:
     text = raw_text.strip()
     return TranslationResult(
         finding_id=_finding_id(finding),
-        severity=_redact_inline_secrets(str(finding.get("severity", "UNKNOWN"))),
+        severity=_safe_output_text(str(finding.get("severity", "UNKNOWN"))),
         # A provider response is untrusted output; do not echo recognizable
         # credentials even if a model repeats them despite prompt guidance.
-        plain_english=_redact_inline_secrets(text),
+        plain_english=_safe_output_text(text),
     )
 
 
@@ -273,7 +288,7 @@ def heuristic_translate(finding: dict) -> TranslationResult:
         "Next step: forward this finding to your IT support or security "
         "contact and ask them to explain the specific risk and fix.",
     )
-    severity = _redact_inline_secrets(str(finding.get("severity", "UNKNOWN"))).upper()
+    severity = _safe_output_text(str(finding.get("severity", "UNKNOWN"))).upper()
     prefix = _SEVERITY_PREFIX.get(severity, "")
     return TranslationResult(
         finding_id=_finding_id(finding),
