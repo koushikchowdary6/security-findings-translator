@@ -126,9 +126,9 @@ def _redact_inline_secrets(text: str) -> str:
 # formatting controls so untrusted evidence cannot forge log lines or visually
 # reverse a severity label. This is output encoding, not a DLP guarantee.
 _ANSI_CONTROL = re.compile(
-    r"\\x1b(?:\\[[0-?]*[ -/]*[@-~]|\\][^\\x07\\x1b]*(?:\\x07|\\x1b\\\\)?)"
+    r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)?)"
 )
-_TERMINAL_CONTROLS = re.compile(r"[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029\\u202a-\\u202e\\u2066-\\u2069]")
+_TERMINAL_CONTROLS = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029\u202a-\u202e\u2066-\u2069]")
 
 
 def _safe_output_text(text: str) -> str:
