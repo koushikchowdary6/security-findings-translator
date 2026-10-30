@@ -106,7 +106,7 @@ _INLINE_SECRET_PATTERNS = (
 # low-entropy credentials in query parameters that entropy checks miss.
 # Preserve the parameter name and URL context while removing only the value.
 _URL_QUERY_SECRET_PATTERN = re.compile(
-    r"""(?i)(?P<prefix>[?&](?:sig|signature|api[_-]?key|access[_-]?token|"""
+    r"""(?i)(?P<prefix>(?:[?&]|&amp;|&#0*38;|&#x0*26;)(?:sig|signature|api[_-]?key|access[_-]?token|"""
     r"""refresh[_-]?token|client[_-]?secret|token|x-amz-(?:signature|security-token)|x-goog-signature)=)"""
     r"""(?P<secret>[^&#\s"'<>),;]+)"""
 )
