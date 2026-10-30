@@ -20,27 +20,27 @@ def _client(text):
 
 def test_finding_metadata_cannot_forge_severity_or_new_log_line():
     finding = {
-        "id": "case-123\\n[CRITICAL] fake incident\\x1b[31m",
-        "severity": "LOW\\u202eHIGH\\x1b[0m",
+        "id": "case-123\n[CRITICAL] fake incident\x1b[31m",
+        "severity": "LOW\u202eHIGH\x1b[0m",
         "rule": "ssh_brute_force",
     }
     result = heuristic_translate(finding)
     assert result.finding_id == "case-123 [CRITICAL] fake incident"
     assert result.severity == "LOW HIGH"
-    assert "\\n" not in result.finding_id
-    assert "\\x1b" not in result.finding_id + result.severity
-    assert "\\u202e" not in result.severity
-    assert "\\n" in finding["id"]  # original evidence is untouched
+    assert "\n" not in result.finding_id
+    assert "\x1b" not in result.finding_id + result.severity
+    assert "\u202e" not in result.severity
+    assert "\n" in finding["id"]  # original evidence is untouched
 
 
 def test_provider_response_is_terminal_safe_and_still_redacts_secrets():
-    response = "Review this issue.\\x1b[31m\\n[CRITICAL] spoofed\\u2066\\x1b[0m token=shortSecret"
+    response = "Review this issue.\x1b[31m\n[CRITICAL] spoofed\u2066\x1b[0m token=shortSecret"
     result = translate_finding(
         {"id": "finding-1", "severity": "HIGH"}, _client(response)
     )
-    assert "\\x1b" not in result.plain_english
-    assert "\\n" not in result.plain_english
-    assert "\\u2066" not in result.plain_english
+    assert "\x1b" not in result.plain_english
+    assert "\n" not in result.plain_english
+    assert "\u2066" not in result.plain_english
     assert "shortSecret" not in result.plain_english
     assert "[REDACTED]" in result.plain_english
     assert result.plain_english.startswith("Review this issue.")
