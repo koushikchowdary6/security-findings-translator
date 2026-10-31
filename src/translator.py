@@ -23,6 +23,7 @@ import json
 import math
 import os
 import re
+import stat
 import sys
 from dataclasses import dataclass
 
@@ -325,9 +326,20 @@ def _load_findings(path: str) -> list[dict]:
             raise ValueError("finding JSON contains a non-finite value")
         return parsed
 
-    # A local file may be user-controlled. Read at most the configured
-    # byte budget, instead of loading an arbitrarily large file into memory.
-    with open(path, "rb") as f:
+    # The input path is untrusted: opening a FIFO can hang indefinitely, and
+    # following a symlink can read an unrelated file (including credentials).
+    # Check the path before opening and the descriptor after opening to catch
+    # path swaps. O_NONBLOCK prevents a swapped FIFO from blocking at open().
+    metadata = os.lstat(path)
+    if not stat.S_ISREG(metadata.st_mode):
+        raise ValueError("findings JSON must be a regular file (no symlinks)")
+    if metadata.st_size > MAX_FINDINGS_FILE_BYTES:
+        raise ValueError("findings JSON file exceeds size limit")
+    flags = os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOFOLLOW", 0)
+    with os.fdopen(os.open(path, flags), "rb") as f:
+        opened = os.fstat(f.fileno())
+        if not stat.S_ISREG(opened.st_mode):
+            raise ValueError("findings JSON must be a regular file")
         raw = f.read(MAX_FINDINGS_FILE_BYTES + 1)
     if len(raw) > MAX_FINDINGS_FILE_BYTES:
         raise ValueError("findings JSON file exceeds size limit")
