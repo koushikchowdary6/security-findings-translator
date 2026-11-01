@@ -114,6 +114,10 @@ _URL_QUERY_SECRET_PATTERN = re.compile(
 
 
 def _redact_inline_secrets(text: str) -> str:
+    # ANSI styling can split a credential name (api_\x1b[31mkey=...) and
+    # bypass regex redaction. Strip complete escape sequences *before* scanning
+    # either evidence sent to a model or text displayed in terminal output.
+    text = _ANSI_CONTROL.sub("", text)
     text = _URL_QUERY_SECRET_PATTERN.sub(
         lambda match: match.group("prefix") + "[REDACTED]", text,
     )
@@ -133,7 +137,7 @@ _TERMINAL_CONTROLS = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029\u202a-\u202e\u
 
 
 def _safe_output_text(text: str) -> str:
-    without_escapes = _ANSI_CONTROL.sub("", _redact_inline_secrets(text))
+    without_escapes = _redact_inline_secrets(text)
     return _TERMINAL_CONTROLS.sub(" ", without_escapes).strip()
 
 
@@ -142,6 +146,12 @@ def _safe_finding_for_llm(value):
     if isinstance(value, dict):
         sanitized = {}
         for key, item in value.items():
+            # Credential-bearing *key names* are evidence too. Redacting only
+            # values leaks secrets via JSON object keys; silently rewriting
+            # keys could also collapse distinct fields. Reject the entire
+            # finding before any paid API call rather than lose identity.
+            if not isinstance(key, str) or _safe_output_text(key) != key:
+                raise ValueError("finding evidence contains unsafe JSON key")
             normalized = re.sub(r"[^a-z0-9]+", "_", str(key).casefold()).strip("_")
             if normalized in _SENSITIVE_FIELDS or normalized.endswith(_SENSITIVE_SUFFIXES):
                 sanitized[key] = "[REDACTED]"
