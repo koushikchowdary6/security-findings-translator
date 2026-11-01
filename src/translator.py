@@ -75,6 +75,14 @@ _SENSITIVE_FIELDS = {
     "aws_secret_access_key", "aws_access_key_id",
 }
 _SENSITIVE_SUFFIXES = ("_password", "_secret", "_token", "_api_key", "_credential")
+# JSON producers use camelCase, snake_case, kebab-case, and mixed punctuation.
+# Compare a separator-free *classification key* without changing the source
+# key in the evidence. Otherwise accessToken/clientSecret/refreshToken can
+# send raw credentials to the paid model while access_token is redacted.
+_SENSITIVE_COMPACT_FIELDS = {name.replace("_", "") for name in _SENSITIVE_FIELDS}
+_SENSITIVE_COMPACT_SUFFIXES = tuple(
+    suffix.replace("_", "") for suffix in _SENSITIVE_SUFFIXES
+)
 
 # Defense in depth for recognizable secrets embedded in free-text fields.
 # This intentionally targets well-defined formats; it is not a general DLP
@@ -153,8 +161,10 @@ def _safe_finding_for_llm(value):
             # Benign newlines are JSON-escaped and retained as evidence.
             if not isinstance(key, str) or _redact_inline_secrets(key) != key:
                 raise ValueError("finding evidence contains unsafe JSON key")
-            normalized = re.sub(r"[^a-z0-9]+", "_", str(key).casefold()).strip("_")
-            if normalized in _SENSITIVE_FIELDS or normalized.endswith(_SENSITIVE_SUFFIXES):
+            normalized = re.sub(r"[^a-z0-9]+", "_", key.casefold()).strip("_")
+            compact = normalized.replace("_", "")
+            if (compact in _SENSITIVE_COMPACT_FIELDS
+                    or compact.endswith(_SENSITIVE_COMPACT_SUFFIXES)):
                 sanitized[key] = "[REDACTED]"
             else:
                 sanitized[key] = _safe_finding_for_llm(item)
@@ -168,6 +178,11 @@ def _safe_finding_for_llm(value):
 
 def _serialized_finding_evidence(finding: dict) -> str:
     """Validate and sanitize evidence before any external model request."""
+    # Direct API callers bypass the JSON-file loader. A list or scalar would
+    # otherwise be sent to a paid model, then fail when result metadata calls
+    # finding.get() after the billable request.
+    if not isinstance(finding, dict):
+        raise ValueError("finding evidence must be a JSON object")
     for field in ("id", "rule", "severity"):
         if field in finding and not isinstance(finding[field], str):
             raise ValueError(f"finding {field} must be a string")
