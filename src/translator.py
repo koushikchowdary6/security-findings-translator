@@ -311,6 +311,38 @@ def heuristic_translate(finding: dict) -> TranslationResult:
 
 # --- File-level helpers --------------------------------------------------------
 
+# Bound parser depth independently of the byte limit. Deeply nested JSON can
+# trigger Python's decoder recursion limit with a small input file.
+MAX_FINDINGS_JSON_NESTING = 128
+
+
+def _reject_excessive_json_nesting(raw: bytes) -> None:
+    """Bound structural nesting before json.loads allocates nested containers.
+
+    Scan UTF-8 bytes, ignoring brackets in strings and escaped quotes.
+    json.loads remains responsible for validating the complete JSON grammar.
+    """
+    depth = 0
+    quoted = False
+    escaped = False
+    for byte in raw:
+        if quoted:
+            if escaped:
+                escaped = False
+            elif byte == 0x5C:  # Backslash
+                escaped = True
+            elif byte == 0x22:  # Double quote
+                quoted = False
+        elif byte == 0x22:
+            quoted = True
+        elif byte in (0x5B, 0x7B):  # [ or {
+            depth += 1
+            if depth > MAX_FINDINGS_JSON_NESTING:
+                raise ValueError("finding JSON exceeds nesting depth limit")
+        elif byte in (0x5D, 0x7D):  # ] or }
+            depth -= 1
+
+
 def _load_findings(path: str) -> list[dict]:
     """Load a finding object or list of finding objects from JSON.
 
@@ -354,6 +386,7 @@ def _load_findings(path: str) -> list[dict]:
         raw = f.read(MAX_FINDINGS_FILE_BYTES + 1)
     if len(raw) > MAX_FINDINGS_FILE_BYTES:
         raise ValueError("findings JSON file exceeds size limit")
+    _reject_excessive_json_nesting(raw)
     findings = json.loads(
         raw.decode("utf-8"),
         object_pairs_hook=reject_duplicate_keys,
