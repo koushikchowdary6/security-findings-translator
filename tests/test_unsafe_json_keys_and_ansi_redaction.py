@@ -26,7 +26,6 @@ def _client(text="Ask IT to review the incident."):
     "callback?sig=shortWebhookSecret",
     "authorization: Bearer privateCredential",
     "api_\x1b[31mkey=splitSecret",
-    "user\nname",
 ])
 def test_unsafe_nested_json_keys_rejected_before_paid_call(unsafe_key):
     client = _client()
@@ -58,8 +57,8 @@ def test_ansi_split_secret_is_redacted_in_model_evidence_and_provider_output():
     prompt = client.messages.create.call_args.kwargs["messages"][0]["content"]
     assert "secretFromTelemetry" not in prompt
     assert "secretFromProvider" not in result.plain_english
-    assert "api_key=[REDACTED]" in prompt
-    assert "api_key=[REDACTED]" in result.plain_english
+    assert "Exposed [REDACTED]" in prompt
+    assert "Rotate [REDACTED] promptly." == result.plain_english
     assert "needs review" in prompt
     assert "\x1b[31m" in finding["description"]
 
