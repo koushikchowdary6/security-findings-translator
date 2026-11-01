@@ -65,8 +65,9 @@ detection stack.
 ## LLM trust boundary
 
 Before calling Claude, the translator recursively redacts recognized credential
-fields (including nested passwords, tokens, and authorization values), and
-recognizable inline secrets in free-text fields: common AWS/OpenAI/Anthropic/
+fields (including nested passwords, tokens, and authorization values) across
+snake_case, camelCase, and hyphenated key names (for example, `accessToken`,
+`clientSecret`, and `X-Api-Key`), and recognizable inline secrets in free-text fields: common AWS/OpenAI/Anthropic/
 GitHub token formats, JWTs, PEM private-key blocks, credential assignments,
 and signed webhook/API URL query parameters (including `sig` and `token`).
 URL sanitization preserves non-secret parameters so responders can still
@@ -92,6 +93,8 @@ The CLI reads at most **4 MiB** of UTF-8 JSON and accepts at most **100
 findings** per invocation. Before constructing a paid API client, it validates
 every finding's JSON evidence size (40,000 serialized characters maximum) and
 requires string-valued `id`, `rule`, and `severity` fields when present.
+Direct `translate_finding()` calls also reject non-object inputs before any
+billable model request, rather than failing after a translation is returned.
 An invalid late finding therefore rejects the **whole batch before any model
 request** instead of generating partial, billable results. These limits bound
 one invocation; they are not a spending cap across multiple invocations, and
