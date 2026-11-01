@@ -150,7 +150,8 @@ def _safe_finding_for_llm(value):
             # values leaks secrets via JSON object keys; silently rewriting
             # keys could also collapse distinct fields. Reject the entire
             # finding before any paid API call rather than lose identity.
-            if not isinstance(key, str) or _safe_output_text(key) != key:
+            # Benign newlines are JSON-escaped and retained as evidence.
+            if not isinstance(key, str) or _redact_inline_secrets(key) != key:
                 raise ValueError("finding evidence contains unsafe JSON key")
             normalized = re.sub(r"[^a-z0-9]+", "_", str(key).casefold()).strip("_")
             if normalized in _SENSITIVE_FIELDS or normalized.endswith(_SENSITIVE_SUFFIXES):
