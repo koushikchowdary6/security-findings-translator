@@ -110,7 +110,7 @@ _INLINE_SECRET_PATTERNS = (
     ),
     re.compile(
         r"(?i)(?<![?&])\b(password|passwd|api[_-]?key|access[_-]?token|"
-        r"refresh[_-]?token|session[_-]?token|(?<!-)token|client[_-]?secret|authorization)\s*[:=]\s*(?!\[REDACTED\])"
+        r"refresh[_-]?token|session[_-]?token|aws[_-]?secret[_-]?access[_-]?key|aws[_-]?session[_-]?token|(?<!-)token|client[_-]?secret|authorization)\s*[:=]\s*(?!\[REDACTED\])"
         r"(?:\"[^\"]+\"|'[^']+'|(?:Bearer|Basic)\s+[A-Za-z0-9._~+/-]+=*|[^\s,;&#]+)"
     ),
 )
@@ -118,10 +118,12 @@ _INLINE_SECRET_PATTERNS = (
 
 # Signed webhook URLs (including Azure Logic Apps callbacks) can contain
 # low-entropy credentials in query parameters that entropy checks miss.
+# Cloud signing credential/scope parameters and AWS session credentials may
+# reveal identities or tokens even when they do not resemble an API key.
 # Preserve the parameter name and URL context while removing only the value.
 _URL_QUERY_SECRET_PATTERN = re.compile(
     r"""(?i)(?P<prefix>(?:[?&]|&amp;|&#0*38;|&#x0*26;)(?:sig|signature|api[_-]?key|access[_-]?token|"""
-    r"""refresh[_-]?token|client[_-]?secret|token|x-amz-(?:signature|security-token)|x-goog-signature)=)"""
+    r"""refresh[_-]?token|client[_-]?secret|aws[_-]?secret[_-]?access[_-]?key|aws[_-]?session[_-]?token|token|x-amz-(?:signature|security-token|credential)|x-goog-(?:signature|credential))=)"""
     r"""(?P<secret>[^&#\s"'<>),;]+)"""
 )
 
