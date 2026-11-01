@@ -69,9 +69,14 @@ fields (including nested passwords, tokens, and authorization values) across
 snake_case, camelCase, and hyphenated key names (for example, `accessToken`,
 `clientSecret`, and `X-Api-Key`), and recognizable inline secrets in free-text fields: common AWS/OpenAI/Anthropic/
 GitHub token formats, JWTs, PEM private-key blocks, credential assignments,
-and signed webhook/API URL query parameters (including `sig` and `token`).
-URL sanitization preserves non-secret parameters so responders can still
-recognize the affected endpoint.
+signed webhook/API URL query parameters (including `sig` and `token`),
+and username/password userinfo in database/HTTP connection URIs. Known
+connection-string metadata keys such as `connectionString`, `dbUrl`, and
+`dsn` are redacted even when their values do not match token patterns.
+URI sanitization preserves the scheme, host and path for triage while hiding
+userinfo; non-secret query parameters remain visible. See
+[credentialed URI regression tests #18](https://github.com/koushikchowdary6/security-findings-translator/pull/18)
+and [passing post-merge CI](https://github.com/koushikchowdary6/security-findings-translator/actions/runs/41328942267).
 The same recognizable-secret filters now also protect **returned finding IDs, severity labels, and generated explanations**, because these fields are printed to users and a model may echo secrets despite prompt guidance. This sanitizes the API request and displayed results without modifying local source evidence.
 Offline tests use a mocked API to verify that synthetic secrets never appear in
 the outbound prompt. The system prompt treats findings as untrusted evidence,
