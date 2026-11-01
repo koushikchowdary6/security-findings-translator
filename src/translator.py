@@ -79,10 +79,15 @@ _SENSITIVE_SUFFIXES = ("_password", "_secret", "_token", "_api_key", "_credentia
 # Compare a separator-free *classification key* without changing the source
 # key in the evidence. Otherwise accessToken/clientSecret/refreshToken can
 # send raw credentials to the paid model while access_token is redacted.
-_SENSITIVE_COMPACT_FIELDS = {name.replace("_", "") for name in _SENSITIVE_FIELDS}
+_SENSITIVE_COMPACT_FIELDS = {name.replace("_", "") for name in _SENSITIVE_FIELDS} | {
+    # These commonly contain embedded usernames/passwords, including when
+    # their values do not resemble a conventional API token.
+    "dsn", "dburl", "databaseurl", "databaseuri", "connectionstring",
+    "jdbcurl", "mongodburi", "redisurl", "brokerurl",
+}
 _SENSITIVE_COMPACT_SUFFIXES = tuple(
     suffix.replace("_", "") for suffix in _SENSITIVE_SUFFIXES
-)
+) + ("connectionstring", "databaseurl", "dburl")
 
 # Defense in depth for recognizable secrets embedded in free-text fields.
 # This intentionally targets well-defined formats; it is not a general DLP
@@ -121,11 +126,24 @@ _URL_QUERY_SECRET_PATTERN = re.compile(
 )
 
 
+# A database DSN or HTTP URL may put a short password in URI userinfo.
+# Preserve the scheme, host and path for triage but never send the username
+# or password to a paid model (or echo them in terminal output). A literal @
+# in a path is not userinfo, because the match cannot cross a slash.
+_URL_USERINFO_PATTERN = re.compile(
+    r"""(?i)(?P<scheme>\b[a-z][a-z0-9+.-]*://)"""
+    r"""(?P<userinfo>[^/\s?#@"']*:[^/\s?#@"']+)@"""
+)
+
+
 def _redact_inline_secrets(text: str) -> str:
     # ANSI styling can split a credential name (api_\x1b[31mkey=...) and
     # bypass regex redaction. Strip complete escape sequences *before* scanning
     # either evidence sent to a model or text displayed in terminal output.
     text = _ANSI_CONTROL.sub("", text)
+    text = _URL_USERINFO_PATTERN.sub(
+        lambda match: match.group("scheme") + "[REDACTED]@", text,
+    )
     text = _URL_QUERY_SECRET_PATTERN.sub(
         lambda match: match.group("prefix") + "[REDACTED]", text,
     )
