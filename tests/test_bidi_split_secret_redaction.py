@@ -35,7 +35,7 @@ def test_bidi_split_token_is_redacted_before_paid_model_and_terminal_output(mark
     assert "secretInEvidence" not in sent
     assert '"description": "[REDACTED]"' in sent
     assert "secretFromProvider" not in result.plain_english
-    assert "token=[REDACTED]" in result.plain_english
+    assert result.plain_english == "Rotate [REDACTED]"
     assert marker not in result.plain_english
     assert marker in finding["description"]  # do not mutate source evidence
 
