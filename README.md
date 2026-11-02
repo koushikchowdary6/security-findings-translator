@@ -70,7 +70,7 @@ snake_case, camelCase, and hyphenated key names (for example, `accessToken`,
 `clientSecret`, and `X-Api-Key`), and recognizable inline secrets in free-text fields: common AWS/OpenAI/Anthropic/
 GitHub token formats, JWTs, PEM private-key blocks, credential assignments,
 signed webhook/API URL query parameters (including `sig` and `token`),
-and username/password userinfo in database/HTTP connection URIs. Known
+and both token-only and username/password userinfo in database/HTTP connection URIs. Known
 connection-string metadata keys such as `connectionString`, `dbUrl`, and
 `dsn` are redacted even when their values do not match token patterns.
 URI sanitization preserves the scheme, host and path for triage while hiding
