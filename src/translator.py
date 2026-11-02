@@ -138,11 +138,17 @@ _URL_USERINFO_PATTERN = re.compile(
     r"""(?P<userinfo>[^/\s?#"']+)@"""
 )
 
+# Directionality controls can split a recognizable credential name without
+# changing its displayed spelling. Remove them *before* secret matching, both
+# in outbound LLM evidence and in terminal-facing results.
+_BIDI_FORMAT_CONTROLS = re.compile(r"[\u061c\u200e\u200f\u202a-\u202e\u2066-\u206f]")
+
 
 def _redact_inline_secrets(text: str) -> str:
     # ANSI styling can split a credential name (api_\x1b[31mkey=...) and
     # bypass regex redaction. Strip complete escape sequences *before* scanning
     # either evidence sent to a model or text displayed in terminal output.
+    text = _BIDI_FORMAT_CONTROLS.sub("", text)
     text = _ANSI_CONTROL.sub("", text)
     text = _URL_USERINFO_PATTERN.sub(
         lambda match: match.group("scheme") + "[REDACTED]@", text,
