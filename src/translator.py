@@ -154,6 +154,12 @@ def _redact_inline_secrets(text: str) -> str:
     return text
 
 
+# Unpaired UTF-16 surrogates are not Unicode scalar values. They can survive
+# Python strings and JSON escaping but fail on strict UTF-8 terminal or API
+# boundaries. Reject them in billable LLM evidence; replace them only when
+# displaying already-returned untrusted provider or identifier text.
+_INVALID_UNICODE_SCALAR = re.compile(r"[\ud800-\udfff]")
+
 # Finding identifiers, severities, and provider text are printed to terminals
 # and CI logs. Neutralize terminal escapes, line breaks, and bidirectional
 # formatting controls so untrusted evidence cannot forge log lines or visually
@@ -165,6 +171,7 @@ _TERMINAL_CONTROLS = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029\u202a-\u202e\u
 
 
 def _safe_output_text(text: str) -> str:
+    text = _INVALID_UNICODE_SCALAR.sub("[INVALID_UNICODE]", text)
     without_escapes = _redact_inline_secrets(text)
     return _TERMINAL_CONTROLS.sub(" ", without_escapes).strip()
 
@@ -179,7 +186,9 @@ def _safe_finding_for_llm(value):
             # keys could also collapse distinct fields. Reject the entire
             # finding before any paid API call rather than lose identity.
             # Benign newlines are JSON-escaped and retained as evidence.
-            if not isinstance(key, str) or _redact_inline_secrets(key) != key:
+            if (not isinstance(key, str)
+                    or _INVALID_UNICODE_SCALAR.search(key)
+                    or _redact_inline_secrets(key) != key):
                 raise ValueError("finding evidence contains unsafe JSON key")
             normalized = re.sub(r"[^a-z0-9]+", "_", key.casefold()).strip("_")
             compact = normalized.replace("_", "")
@@ -192,6 +201,8 @@ def _safe_finding_for_llm(value):
     if isinstance(value, list):
         return [_safe_finding_for_llm(item) for item in value]
     if isinstance(value, str):
+        if _INVALID_UNICODE_SCALAR.search(value):
+            raise ValueError("finding evidence contains invalid Unicode surrogate")
         return _redact_inline_secrets(value)
     return value
 
