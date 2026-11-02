@@ -128,13 +128,14 @@ _URL_QUERY_SECRET_PATTERN = re.compile(
 )
 
 
-# A database DSN or HTTP URL may put a short password in URI userinfo.
-# Preserve the scheme, host and path for triage but never send the username
-# or password to a paid model (or echo them in terminal output). A literal @
-# in a path is not userinfo, because the match cannot cross a slash.
+# Database DSNs and HTTP URLs may carry short credentials in URI userinfo.
+# A password need not be preceded by a colon: token@host and user:pass@host
+# are both sensitive. Redact the complete userinfo (including repeated @)
+# while preserving the scheme, host and path for triage. An @ after a slash
+# is a path character, not userinfo, and must remain untouched.
 _URL_USERINFO_PATTERN = re.compile(
     r"""(?i)(?P<scheme>\b[a-z][a-z0-9+.-]*://)"""
-    r"""(?P<userinfo>[^/\s?#@"']*:[^/\s?#@"']+)@"""
+    r"""(?P<userinfo>[^/\s?#"']+)@"""
 )
 
 

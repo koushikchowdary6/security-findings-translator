@@ -70,3 +70,37 @@ def test_returned_model_text_and_finding_id_also_redact_uri_credentials():
     assert "shortPW" not in result.plain_english
     assert "://[REDACTED]@" in result.finding_id
     assert "://[REDACTED]@" in result.plain_english
+
+
+@pytest.mark.parametrize("uri,secret,host", [
+    ("https://short-token@api.example.invalid/v1", "short-token", "api.example.invalid"),
+    ("postgresql://robot@db.example.invalid/reports", "robot", "db.example.invalid"),
+    ("https://name@opaque-key@api.example.invalid/v1", "name@opaque-key", "api.example.invalid"),
+])
+def test_userinfo_without_password_colon_redacted_before_paid_request(uri, secret, host):
+    finding = {"id": "case", "description": "Observed " + uri}
+    client = _client()
+    translate_finding(finding, client)
+    prompt = client.messages.create.call_args.kwargs["messages"][0]["content"]
+    assert "://[REDACTED]@" in prompt
+    assert host in prompt
+    assert secret not in prompt
+    assert finding["description"].endswith(uri)
+
+
+def test_token_only_userinfo_is_redacted_from_display_boundaries():
+    uri = "https://short-secret@api.example.invalid/status"
+    client = _client("Observed " + uri)
+    result = translate_finding({"id": uri, "description": "connection failed"}, client)
+    assert "short-secret" not in result.finding_id
+    assert "short-secret" not in result.plain_english
+    assert "://[REDACTED]@api.example.invalid" in result.finding_id
+    assert "://[REDACTED]@api.example.invalid" in result.plain_english
+
+
+def test_path_and_query_at_signs_remain_intact_without_authority_userinfo():
+    finding = {
+        "description": "https://example.invalid/users/alice@team",
+        "documentationUrl": "https://example.invalid/help?contact=alice@team",
+    }
+    assert json.loads(_serialized_finding_evidence(finding)) == finding
