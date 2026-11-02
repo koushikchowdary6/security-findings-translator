@@ -138,11 +138,17 @@ _URL_USERINFO_PATTERN = re.compile(
     r"""(?P<userinfo>[^/\s?#"']+)@"""
 )
 
+# Directionality controls can split a recognizable credential name without
+# changing its displayed spelling. Remove them *before* secret matching, both
+# in outbound LLM evidence and in terminal-facing results.
+_BIDI_FORMAT_CONTROLS = re.compile(r"[\u061c\u200e\u200f\u202a-\u202e\u2066-\u206f]")
+
 
 def _redact_inline_secrets(text: str) -> str:
     # ANSI styling can split a credential name (api_\x1b[31mkey=...) and
     # bypass regex redaction. Strip complete escape sequences *before* scanning
     # either evidence sent to a model or text displayed in terminal output.
+    text = _BIDI_FORMAT_CONTROLS.sub("", text)
     text = _ANSI_CONTROL.sub("", text)
     text = _URL_USERINFO_PATTERN.sub(
         lambda match: match.group("scheme") + "[REDACTED]@", text,
@@ -174,6 +180,12 @@ _TERMINAL_CONTROLS = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029\u202a-\u202e\u
 def _safe_output_text(text: str) -> str:
     text = _INVALID_UNICODE_SCALAR.sub("[INVALID_UNICODE]", text)
     without_escapes = _redact_inline_secrets(text)
+    # Preserve the original word separation for benign bidi-marked labels
+    # (LOW<mark>HIGH -> LOW HIGH). If joining controls exposed a secret,
+    # retain the joined-and-redacted version instead of leaking its value.
+    joined = _ANSI_CONTROL.sub("", _BIDI_FORMAT_CONTROLS.sub("", text))
+    if without_escapes == joined:
+        without_escapes = _BIDI_FORMAT_CONTROLS.sub(" ", _ANSI_CONTROL.sub("", text))
     return _TERMINAL_CONTROLS.sub(" ", without_escapes).strip()
 
 
