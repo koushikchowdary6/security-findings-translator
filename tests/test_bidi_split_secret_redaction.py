@@ -33,7 +33,7 @@ def test_bidi_split_token_is_redacted_before_paid_model_and_terminal_output(mark
 
     sent = client.messages.create.call_args.kwargs["messages"][0]["content"]
     assert "secretInEvidence" not in sent
-    assert "token=[REDACTED]" in sent
+    assert '"description": "[REDACTED]"' in sent
     assert "secretFromProvider" not in result.plain_english
     assert "token=[REDACTED]" in result.plain_english
     assert marker not in result.plain_english
